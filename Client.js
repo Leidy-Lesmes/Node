@@ -6,14 +6,22 @@ require("dotenv").config();
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
 
 const port = process.env.NODE_SERVICE_PORT;
 const ip = process.env.HOST_MACHINE_IP;
 const nodeName = process.env.NODE_NAME;
 
-app.use(cors());
+app.use(cors({ origin: '*' }));
 
+const io = require('socket.io')(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST'],
+        allowedHeaders: ['Content-Type'],
+        credentials: true
+    }
+});
 
 const socketIoClient = require('socket.io-client');
 
@@ -30,10 +38,34 @@ const socket = socketIoClient(coordinatorUrl, {
   query: { clientUrl } 
 });
 
+// Configuración del servidor WebSocket
 io.on('connection', (socket) => {
-    socket.emit('node_name', nodeName);
-    console.log ("--------------"+ nodeName)
+    const origin = socket.handshake.query.clientUrl;
+
+    console.log(`[${currentTime}] Nuevo cliente conectado desde: ${origin}`);
+
+    socket.on('join_vue_clients', () => {
+        socket.join('vue-clients');
+        io.to('vue-clients').emit('system_log', `[${currentTime}] Client from Vue connected. ${origin}`);
+        
+        // Envía los datos al cliente Vue
+        io.to('vue-clients').emit('node_data', {
+            node_name: nodeName,
+            ip_address: process.env.NODE_SERVICE_IP,
+            simulated_time: simulatedClientTime.toLocaleTimeString(),
+            system_time: getCurrentTime().toLocaleTimeString()
+        });
+    });
+
+    socket.emit('log_message', `[${getCurrentTime()}] Connected successful from ${origin} to coordinator server.`);
+    io.to('vue-clients').emit('system_log', `[${getCurrentTime()}] Connected successful from ${origin} to coordinator server.`);
+
+    socket.on('disconnect', () => {
+        console.log(`[${getCurrentTime()}] Client ${origin} disconnected.`);
+        io.to('vue-clients').emit('system_log', `[${getCurrentTime()}] Client ${origin} disconnected.`);
+    });
 });
+
 
 socket.on('connect', () => {
     const currentTime = new Date().toLocaleTimeString();
