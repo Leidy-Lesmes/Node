@@ -114,6 +114,8 @@ socket.on('coordinator_time', (coordinatorTime) => {
     coordinatorTimeReceived.setSeconds(parseInt(second)); 
     console.log(`[${currentTime}] Hora recibida del coordinador: ${coordinatorTime}`);
     calculateTimeDifference();
+
+    io.to('vue-clients').emit('log_message', `[${currentTime}] Hora recibida del coordinador: ${coordinatorTime}`);
 });
 
 
@@ -127,6 +129,7 @@ function calculateTimeDifference() {
             const timeDifferenceInSeconds = timeDifference / 1000;
             console.log(`[${currentTime}] Diferencia de tiempo con el coordinador: ${timeDifferenceInSeconds} segundos`);
             socket.emit('time_difference', { differenceInSeconds: timeDifferenceInSeconds, nodeUrl: clientUrl });
+            io.to('vue-clients').emit('log_message', `[${currentTime}]Diferencia de tiempo con el coordinador: ${timeDifferenceInSeconds} segundos`);
         } else {
             console.log(`[${currentTime}]La hora simulada del cliente no es válida.`);
         }
@@ -138,6 +141,7 @@ function calculateTimeDifference() {
 socket.on('node_time_difference', (data) => {
     const difference = data.difference;
     console.log(`[${currentTime}] Diferencia recibida del coordinador respecto al promedio : ${difference}`)
+    io.to('vue-clients').emit('log_message', `[${currentTime}] Diferencia recibida del coordinador respecto al promedio : ${difference}`);
     receiveTimeDifference(difference);
 });
 
@@ -146,6 +150,8 @@ function receiveTimeDifference(difference) {
         const differenceMilliseconds = difference * 1000; 
         simulatedClientTime.setTime(simulatedClientTime.getTime() + differenceMilliseconds);
         console.log(`[${currentTime}] Hora simulada actualizada : ${simulatedClientTime.toLocaleTimeString()}`);
+        io.to('vue-clients').emit('log_message', `[${currentTime}] Hora simulada actualizada : ${simulatedClientTime.toLocaleTimeString()}`);
+        io.to('vue-clients').emit('update_simulated_time', simulatedClientTime.toLocaleTimeString());
     } else {
         console.log(`[${currentTime}] La hora simulada del cliente no es válida.`);
     }
