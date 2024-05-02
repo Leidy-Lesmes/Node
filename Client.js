@@ -25,7 +25,7 @@ const io = require('socket.io')(server, {
 
 const socketIoClient = require('socket.io-client');
 
-const coordinatorUrl = 'http://localhost:3000'; 
+const coordinatorUrl = 'http://10.4.72.200:3000'; 
 const clientUrl = `http://${process.env.NODE_SERVICE_IP}:${process.env.NODE_SERVICE_PORT}`;
 
 
