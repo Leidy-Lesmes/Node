@@ -10,12 +10,21 @@ const server = http.createServer(app);
 const port = process.env.NODE_SERVICE_PORT;
 const nodeIp = process.env.NODE_SERVICE_IP;
 const nodeName = process.env.NODE_NAME;
+const nodeIpFront = process.env.IP_FRONT;
+const portFront = process.env.PORT_FRONT;
 
-const clientFront = process.env.IP_CLIENT_FRONT; // URL del cliente al que se enviará información
+console.log('Port:', process.env.NODE_SERVICE_PORT);
+console.log('Node IP:', process.env.NODE_SERVICE_IP);
+console.log('Node Name:', process.env.NODE_NAME);
+console.log('IP Front:', process.env.IP_FRONT);
+console.log('Port Front:', process.env.PORT_FRONT);
+
+
+const clientFront = process.env.IP_CLIENT_FRONT || 'http://localhost:8081/';
 
 app.use(cors({ origin: '*' }));
 
-const io = socketIo(server, {
+const io = require('socket.io')(server, {
     cors: {
         origin: '*',
         methods: ['GET', 'POST'],
@@ -26,8 +35,9 @@ const io = socketIo(server, {
 
 const socketIoClient = require('socket.io-client');
 
-const coordinatorUrl = 'http://10.4.72.200:3000'; 
-const clientUrl = `http://${process.env.NODE_SERVICE_IP}:${process.env.NODE_SERVICE_PORT}`;
+const coordinatorUrl = 'http://10.4.72.200:3000';
+
+const clientUrl = `http://${nodeIpFront}:${portFront}`;
 
 
 const currentTime = new Date().toLocaleTimeString();
@@ -35,21 +45,20 @@ const currentTime = new Date().toLocaleTimeString();
 let simulatedClientTime;
 let coordinatorTimeReceived;
 
-// Conexión al servidor coordinador
 const socket = socketIoClient(coordinatorUrl, {
-  query: { clientUrl } 
+    query: { clientUrl: clientUrl }
 });
 
 // Configuración del servidor WebSocket
 io.on('connection', (socket) => {
     const origin = socket.handshake.query.clientUrl;
 
-    console.log(`[${currentTime}] Nuevo cliente conectado desde: ${origin}`);
+    console.log('[${currentTime}] ', 'Nuevo cliente conectado desde:', origin);
 
     socket.on('join_vue_clients', () => {
         socket.join('vue-clients');
         io.to('vue-clients').emit('system_log', `[${currentTime}] Client from Vue connected. ${origin}`);
-        
+
         // Envía los datos al cliente Vue
         io.to('vue-clients').emit('node_data', {
             node_name: nodeName,
@@ -91,7 +100,7 @@ function getCurrentTime() {
 
 function simulateRandomTime(seconds) {
     const currentTime = getCurrentTime();
-    const randomOffset = Math.floor(Math.random() * seconds); 
+    const randomOffset = Math.floor(Math.random() * seconds);
     const newTime = new Date(currentTime.getTime() + randomOffset * 1000);
     return newTime;
 }
@@ -101,10 +110,11 @@ function startClock() {
     setInterval(() => {
         const realTime = getCurrentTime();
         simulatedClientTime.setSeconds(simulatedClientTime.getSeconds() + 1);
+        console.log(`URL: ${clientUrl}`);
         console.log(`Hora real: ${realTime.toLocaleTimeString()}`);
         console.log(`Hora simulada del cliente: ${simulatedClientTime.toLocaleTimeString()}`);
         // Emitir la hora simulada y la URL del cliente
-        io.to(clientFront).emit('simulated_client_time', {
+        io.to('vue-clients').emit('simulated_client_time', {
             time: simulatedClientTime.toLocaleTimeString(),
             url: clientUrl,
         });
@@ -114,14 +124,13 @@ function startClock() {
 startClock();
 
 socket.on('coordinator_time', (coordinatorTime) => {
-    const [hour, minute, second] = coordinatorTime.split(':'); 
-    coordinatorTimeReceived = new Date(); 
-    coordinatorTimeReceived.setHours(parseInt(hour)); 
-    coordinatorTimeReceived.setMinutes(parseInt(minute)); 
-    coordinatorTimeReceived.setSeconds(parseInt(second)); 
+    const [hour, minute, second] = coordinatorTime.split(':');
+    coordinatorTimeReceived = new Date();
+    coordinatorTimeReceived.setHours(parseInt(hour));
+    coordinatorTimeReceived.setMinutes(parseInt(minute));
+    coordinatorTimeReceived.setSeconds(parseInt(second));
     console.log(`[${currentTime}] Hora recibida del coordinador: ${coordinatorTime}`);
     calculateTimeDifference();
-
     io.to('vue-clients').emit('log_message', `[${currentTime}] Hora recibida del coordinador: ${coordinatorTime}`);
 });
 
